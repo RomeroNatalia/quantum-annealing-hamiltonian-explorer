@@ -20,6 +20,7 @@
     --rule:#2C3342; --grid:#262C39; --drv:#5B97EE; --prob:#EDA052; --thermal:#E26868; --gs:#5B97EE; --ex:#EDA052; --other:#5A6273; --bar:#2FBF90; --focus:#5B97EE; }
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.5}
 header{padding:28px 32px 18px;border-bottom:1px solid var(--rule);background:var(--panel)}
 h1{font-size:20px;font-weight:600;margin:0 0 4px;letter-spacing:-0.01em}
@@ -40,13 +41,23 @@ legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
 .row output{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
 input[type=range]{width:100%;accent-color:var(--drv)}
 select,button{font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:6px 10px}
+select{width:100%}
+.row select{grid-column:2 / 4}
 button{cursor:pointer}
 button:hover{border-color:var(--ink-3)}
 button.primary{background:var(--ink);color:var(--panel);border-color:var(--ink);min-width:84px}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.seg{display:flex;border:1px solid var(--rule);border-radius:6px;overflow:hidden;margin:2px 0 10px}
+.seg label{flex:1;position:relative;cursor:pointer;font-size:13.5px}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;padding:6px 10px;color:var(--ink-2)}
+.seg label + label span{border-left:1px solid var(--rule)}
+.seg input:checked + span{background:var(--ink);color:var(--panel)}
+.seg input:focus-visible + span{outline:2px solid var(--focus);outline-offset:-2px}
 .plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:18px 24px 28px}
 figure{margin:0;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px 10px}
+figure.wide{grid-column:1 / -1}
 figcaption{font-size:14px;font-weight:600;margin-bottom:2px}
 figcaption small{display:block;font-weight:400;font-size:12.5px;color:var(--ink-3)}
 .cv{position:relative;height:300px}
@@ -54,8 +65,20 @@ figcaption small{display:block;font-weight:400;font-size:12.5px;color:var(--ink-
 .key > span{display:inline-flex;align-items:center;gap:6px}
 .sw{display:inline-block;width:18px;height:0;border-top:2.5px solid}
 .sw.d{border-top-style:dashed}
+.graph{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:18px;align-items:center}
+#g{display:block;width:100%;height:auto;max-height:360px}
+#g text{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;fill:var(--ink-3)}
+.gside{font-size:12.5px;color:var(--ink-2)}
+.gside dl{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;margin:0 0 12px}
+.gside dt{color:var(--ink-3)}
+.gside dd{margin:0;font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.gside ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.gside li{display:flex;align-items:center;gap:8px}
+.gside li svg{flex:none}
+.note{font-weight:400;color:var(--ink-3)}
 footer{padding:14px 32px 28px;color:var(--ink-3);font-size:12.5px;max-width:100ch}
-@media (max-width:980px){main{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--rule)}.plots{grid-template-columns:1fr}}
+@media (max-width:980px){main{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--rule)}.plots{grid-template-columns:1fr}.graph{grid-template-columns:1fr}}
+@media (max-width:520px){header,.readouts{padding-left:16px;padding-right:16px}aside{padding-left:16px;padding-right:16px}.plots{padding-left:12px;padding-right:12px}footer{padding-left:16px;padding-right:16px}}
 @media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
 </style>
 </head>
@@ -63,7 +86,7 @@ footer{padding:14px 32px 28px;color:var(--ink-3);font-size:12.5px;max-width:100c
 
 <header>
   <h1>Quantum annealing Hamiltonian explorer</h1>
-  <p class="sub">Every parameter in the equation has a control on the left. The spectrum is recomputed by exact diagonalization each time you move one.</p>
+  <p class="sub">Choose a network or a lattice of up to 9 spins. Every parameter in the equation has a control on the left, and the spectrum is recomputed each time you move one.</p>
   <div class="eq" id="eq"></div>
 </header>
 
@@ -95,16 +118,41 @@ footer{padding:14px 32px 28px;color:var(--ink-3);font-size:12.5px;max-width:100c
   </fieldset>
 
   <fieldset>
-    <legend><span>Spins and couplings J<sub>ij</sub></span></legend>
-    <div class="row"><label for="N">Spins N</label><select id="N"><option>2</option><option selected>3</option><option>4</option><option>5</option></select><span></span></div>
-    <div class="row"><label for="topo">Graph</label><select id="topo"><option value="all" selected>All pairs</option><option value="chain">Open chain</option><option value="ring">Ring</option></select><span></span></div>
+    <legend><span>Spin graph and couplings J<sub>ij</sub></span></legend>
+    <div class="seg" role="radiogroup" aria-label="Graph family">
+      <label><input type="radio" name="family" value="network"><span>Network</span></label>
+      <label><input type="radio" name="family" value="lattice"><span>Lattice</span></label>
+    </div>
+    <div id="netbox">
+      <div class="row"><label for="net">Network</label><select id="net">
+        <option value="complete">Complete graph</option>
+        <option value="star">Star</option>
+        <option value="random">Random (Erdős–Rényi)</option>
+        <option value="chimera">Chimera cell K₄,₄</option>
+      </select></div>
+      <div class="row" id="Nrow"><label for="N">Spins N</label><select id="N"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option></select></div>
+      <div class="row" id="prow"><label for="p">Edge prob. p</label><input type="range" id="p" min="0.1" max="1" step="0.05"><output id="po"></output></div>
+    </div>
+    <div id="latbox" hidden>
+      <div class="row"><label for="lat">Lattice</label><select id="lat">
+        <option value="chain">1D chain</option>
+        <option value="square">2D square</option>
+        <option value="triangular">2D triangular</option>
+      </select></div>
+      <div class="row"><label for="size">Size</label><select id="size"></select></div>
+      <div class="row"><label for="bc">Boundary</label><select id="bc"><option value="open">Open</option><option value="periodic">Periodic</option></select></div>
+    </div>
+    <p class="hint" id="ghint"></p>
     <div class="row"><label for="J">J (all edges)</label><input type="range" id="J" min="-1" max="1" step="0.05"><output id="Jo"></output></div>
-    <p class="hint">J &gt; 0 antiferromagnetic (frustrated on odd rings), J &lt; 0 ferromagnetic.</p>
+    <div class="row"><label for="signs">Signs</label><select id="signs"><option value="uniform">Same on every edge</option><option value="random">Random ± (spin glass)</option></select></div>
+    <p class="hint">J &gt; 0 antiferromagnetic, J &lt; 0 ferromagnetic. Random ± gives each edge ±|J| at random.</p>
+    <div class="btns" id="seedrow"><button id="reseed" type="button">New random draw</button></div>
   </fieldset>
 
   <fieldset>
     <legend><span>Local fields h<sub>i</sub></span></legend>
     <div id="hbox"></div>
+    <div class="btns"><button id="hzero" type="button">All zero</button><button id="hrand" type="button">Randomize</button></div>
     <p class="hint">Set all fields to 0 to see the ± twin states become degenerate.</p>
   </fieldset>
 
@@ -126,13 +174,35 @@ footer{padding:14px 32px 28px;color:var(--ink-3);font-size:12.5px;max-width:100c
 </aside>
 
 <section class="plots">
+  <figure class="wide">
+    <figcaption id="gcap">Spin graph at current s<small>Each arrow is that spin's state in the ground state ψ₀(s); each edge is colored by whether its bond is satisfied</small></figcaption>
+    <div class="graph">
+      <svg id="g" viewBox="0 0 640 340" role="img" aria-label="Spin graph with the ground-state direction of each spin"></svg>
+      <div class="gside">
+        <dl>
+          <dt>Spins</dt><dd id="st_n"></dd>
+          <dt>Couplers</dt><dd id="st_e"></dd>
+          <dt>Basis states</dt><dd id="st_d"></dd>
+          <dt>Solver</dt><dd id="st_sv"></dd>
+        </dl>
+        <ul>
+          <li><svg width="30" height="30" viewBox="-15 -15 30 30" aria-hidden="true"><circle r="12" fill="var(--panel)" stroke="var(--ink-3)" stroke-width="1.5"/><path d="M-8 0H8M3.5-4.5 8 0 3.5 4.5" stroke="var(--ink)" stroke-width="2" fill="none" stroke-linecap="round"/></svg><span>Arrow = (⟨σ<sup>x</sup>⟩, ⟨σ<sup>z</sup>⟩). Right: along the driver. Up/down: σ<sup>z</sup> = ±1. Shorter arrows mean a less definite spin.</span></li>
+          <li><svg width="30" height="12" aria-hidden="true"><line x1="2" y1="6" x2="28" y2="6" stroke="var(--bar)" stroke-width="3" stroke-linecap="round"/></svg><span>Satisfied bond: ⟨J<sub>ij</sub> σ<sup>z</sup><sub>i</sub>σ<sup>z</sup><sub>j</sub>⟩ &lt; 0</span></li>
+          <li><svg width="30" height="12" aria-hidden="true"><line x1="2" y1="6" x2="28" y2="6" stroke="var(--thermal)" stroke-width="3" stroke-linecap="round"/></svg><span>Frustrated bond: ⟨J<sub>ij</sub> σ<sup>z</sup><sub>i</sub>σ<sup>z</sup><sub>j</sub>⟩ &gt; 0</span></li>
+          <li><svg width="30" height="12" aria-hidden="true"><line x1="2" y1="6" x2="28" y2="6" stroke="var(--ink-3)" stroke-width="2.5"/></svg><span>Solid: ferromagnetic (J &lt; 0)</span></li>
+          <li><svg width="30" height="12" aria-hidden="true"><line x1="2" y1="6" x2="28" y2="6" stroke="var(--ink-3)" stroke-width="2.5" stroke-dasharray="6 4"/></svg><span>Dashed: antiferromagnetic (J &gt; 0)</span></li>
+          <li id="wrapnote" hidden><svg width="30" height="12" aria-hidden="true"><line x1="2" y1="6" x2="16" y2="6" stroke="var(--ink-3)" stroke-width="2.5" stroke-linecap="round"/></svg><span>Half-length stub at the edge: a periodic bond that wraps to the opposite side</span></li>
+        </ul>
+      </div>
+    </div>
+  </figure>
   <figure>
     <figcaption>Schedule functions<small>How strongly the driver and the problem act at each s</small></figcaption>
     <div class="key"><span><i class="sw d" style="border-color:var(--drv)"></i>A(s)</span><span><i class="sw" style="border-color:var(--prob)"></i>B(s)</span></div>
     <div class="cv"><canvas id="c1" role="img" aria-label="A(s) and B(s) versus s."></canvas></div>
   </figure>
   <figure>
-    <figcaption>Energy levels of H(s)<small>Lowest levels versus s; red markers show the minimum gap</small></figcaption>
+    <figcaption>Energy levels of H(s) <span class="note" id="c2note"></span><small id="c2sub">Lowest levels versus s; red markers show the minimum gap</small></figcaption>
     <div class="key"><span><i class="sw" style="border-color:var(--gs)"></i>ground E₀</span><span><i class="sw d" style="border-color:var(--ex)"></i>first excited E₁</span><span><i class="sw" style="border-color:var(--other);border-top-width:1.5px"></i>higher levels</span></div>
     <div class="cv"><canvas id="c2" role="img" aria-label="Energy levels of H(s) versus s."></canvas></div>
   </figure>
@@ -152,7 +222,184 @@ footer{padding:14px 32px 28px;color:var(--ink-3);font-size:12.5px;max-width:100c
 <footer>
   D-Wave convention: energies in GHz (energy divided by Planck's constant), spins s<sub>i</sub> = ±1 with + for σ<sup>z</sup> = +1, J<sub>ij</sub> &lt; 0 ferromagnetic.
   k<sub>B</sub>/h = 20.84 GHz/K. Schedule curves are illustrative; for quantitative work use the published schedule of the processor you run on.
+  Up to 6 spins the spectrum comes from exact dense diagonalization. From 7 spins on, a restarted block-Krylov (Rayleigh–Ritz) solver finds the lowest levels to a residual below 10<sup>−4</sup> GHz, with the minimum gap refined by golden-section search.
 </footer>
+
+<script type="text/plain" id="worker-src">
+// ---------- eigen-solver (runs in a Web Worker)
+function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const b0 = 0.04;
+const sched = (sp, s) => [sp.A0 * Math.pow(1 - s, sp.ap), sp.B1 * (b0 + (1 - b0) * Math.pow(s, sp.bp))];
+// Symmetric eigendecomposition: Householder tridiagonalization + implicit QL (after JAMA). A is overwritten.
+function eigh(A){
+  const n = A.length, V = A, d = new Float64Array(n), e = new Float64Array(n);
+  for (let j=0;j<n;j++) d[j] = V[n-1][j];
+  for (let i=n-1;i>0;i--){
+    let scale = 0, h = 0;
+    for (let k=0;k<i;k++) scale += Math.abs(d[k]);
+    if (scale === 0){
+      e[i] = d[i-1];
+      for (let j=0;j<i;j++){ d[j] = V[i-1][j]; V[i][j] = 0; V[j][i] = 0; }
+    } else {
+      for (let k=0;k<i;k++){ d[k] /= scale; h += d[k]*d[k]; }
+      let f = d[i-1], g = Math.sqrt(h); if (f > 0) g = -g;
+      e[i] = scale*g; h -= f*g; d[i-1] = f - g;
+      for (let j=0;j<i;j++) e[j] = 0;
+      for (let j=0;j<i;j++){
+        f = d[j]; V[j][i] = f; g = e[j] + V[j][j]*f;
+        for (let k=j+1;k<=i-1;k++){ g += V[k][j]*d[k]; e[k] += V[k][j]*f; }
+        e[j] = g;
+      }
+      f = 0;
+      for (let j=0;j<i;j++){ e[j] /= h; f += e[j]*d[j]; }
+      const hh = f/(h+h);
+      for (let j=0;j<i;j++) e[j] -= hh*d[j];
+      for (let j=0;j<i;j++){
+        f = d[j]; g = e[j];
+        for (let k=j;k<=i-1;k++) V[k][j] -= (f*e[k] + g*d[k]);
+        d[j] = V[i-1][j]; V[i][j] = 0;
+      }
+    }
+    d[i] = h;
+  }
+  for (let i=0;i<n-1;i++){
+    V[n-1][i] = V[i][i]; V[i][i] = 1;
+    const h = d[i+1];
+    if (h !== 0){
+      for (let k=0;k<=i;k++) d[k] = V[k][i+1]/h;
+      for (let j=0;j<=i;j++){
+        let g = 0; for (let k=0;k<=i;k++) g += V[k][i+1]*V[k][j];
+        for (let k=0;k<=i;k++) V[k][j] -= g*d[k];
+      }
+    }
+    for (let k=0;k<=i;k++) V[k][i+1] = 0;
+  }
+  for (let j=0;j<n;j++){ d[j] = V[n-1][j]; V[n-1][j] = 0; }
+  V[n-1][n-1] = 1; e[0] = 0;
+  for (let i=1;i<n;i++) e[i-1] = e[i];
+  e[n-1] = 0;
+  let f = 0, tst1 = 0; const eps = Math.pow(2, -52);
+  for (let l=0;l<n;l++){
+    tst1 = Math.max(tst1, Math.abs(d[l]) + Math.abs(e[l]));
+    let m = l; while (m < n && Math.abs(e[m]) > eps*tst1) m++;
+    if (m === n) m = n-1;
+    if (m > l){
+      do {
+        let g = d[l], p = (d[l+1]-g)/(2*e[l]), r = Math.hypot(p, 1); if (p < 0) r = -r;
+        d[l] = e[l]/(p+r); d[l+1] = e[l]*(p+r);
+        const dl1 = d[l+1]; let h = g - d[l];
+        for (let i=l+2;i<n;i++) d[i] -= h;
+        f += h;
+        p = d[m];
+        let c = 1, c2 = c, c3 = c, el1 = e[l+1], s = 0, s2 = 0;
+        for (let i=m-1;i>=l;i--){
+          c3 = c2; c2 = c; s2 = s;
+          g = c*e[i]; h = c*p; r = Math.hypot(p, e[i]);
+          e[i+1] = s*r; s = e[i]/r; c = p/r; p = c*d[i] - s*g; d[i+1] = h + s*(c*g + s*d[i]);
+          for (let k=0;k<n;k++){ h = V[k][i+1]; V[k][i+1] = s*V[k][i] + c*h; V[k][i] = c*V[k][i] - s*h; }
+        }
+        p = -s*s2*c3*el1*e[l]/dl1; e[l] = s*p; d[l] = c*p;
+      } while (Math.abs(e[l]) > eps*tst1);
+    }
+    d[l] += f; e[l] = 0;
+  }
+  const idx = [...Array(n).keys()].sort((i,j) => d[i] - d[j]);
+  return { e: idx.map(i => d[i]), vec: t => Float64Array.from(V, row => row[idx[t]]) };
+}
+function applyH(x, y, a, b, Ecl, N){
+  const D = x.length, ha = a/2, hb = b/2;
+  for (let k=0;k<D;k++){ let v = hb*Ecl[k]*x[k]; for (let i=0;i<N;i++) v -= ha*x[k ^ (1<<i)]; y[k] = v; }
+}
+const KEEP = 12, BLOCK = 16, KRYLOV = 64, DENSE = 64, TOL = 1e-4;
+// Lowest nev eigenpairs of H = -a/2 Σ σx_i + b/2 diag(Ecl). Dense for D ≤ 64; otherwise restarted block
+// Krylov with Rayleigh–Ritz until every residual ||Hy − θy|| < TOL. warm: Ritz vectors from a nearby s.
+function lowest(a, b, Ecl, N, warm, nev){
+  const D = 1 << N, m = Math.min(nev, D);
+  if (D <= DENSE){
+    const M = Array.from({length:D}, (_,k) => { const r = new Float64Array(D); r[k] = b/2*Ecl[k]; for (let i=0;i<N;i++) r[k ^ (1<<i)] = -a/2; return r; });
+    const r = eigh(M);
+    return { e: r.e.slice(0, m), vecs: Array.from({length:Math.min(KEEP, D)}, (_,t) => r.vec(t)) };
+  }
+  const rnd = rng(20260930), rand = () => Float64Array.from({length:D}, () => rnd() - 0.5);
+  let start = warm ? warm.slice(0, KEEP) : [], out = null;
+  for (let cycle=0; cycle<40; cycle++){
+    const Q = [], W = [];
+    const add = v => {
+      let n0 = 0; for (let k=0;k<D;k++) n0 += v[k]*v[k];
+      for (let pass=0; pass<2; pass++) for (const q of Q){ let d = 0; for (let k=0;k<D;k++) d += q[k]*v[k]; for (let k=0;k<D;k++) v[k] -= d*q[k]; }
+      let n = 0; for (let k=0;k<D;k++) n += v[k]*v[k];
+      if (!(n > 1e-20*n0)) return;
+      n = Math.sqrt(n); for (let k=0;k<D;k++) v[k] /= n;
+      const w = new Float64Array(D); applyH(v, w, a, b, Ecl, N); Q.push(v); W.push(w);
+    };
+    for (const v of start) add(Float64Array.from(v));
+    while (Q.length < BLOCK) add(rand());
+    let next = 0;
+    while (Q.length < KRYLOV) add(next < W.length ? Float64Array.from(W[next++]) : rand());
+    const K = Q.length;
+    const T = Q.map(qi => Float64Array.from(W, wj => { let d = 0; for (let k=0;k<D;k++) d += qi[k]*wj[k]; return d; }));
+    for (let i=0;i<K;i++) for (let j=i+1;j<K;j++){ const s = (T[i][j]+T[j][i])/2; T[i][j] = T[j][i] = s; }
+    const r = eigh(T), vecs = [];
+    let res = 0;
+    for (let t=0;t<KEEP;t++){
+      const c = r.vec(t), y = new Float64Array(D), hy = new Float64Array(D);
+      for (let j=0;j<K;j++){ const cj = c[j], q = Q[j], w = W[j]; for (let k=0;k<D;k++){ y[k] += cj*q[k]; hy[k] += cj*w[k]; } }
+      if (t < m){ let s = 0; for (let k=0;k<D;k++){ const d = hy[k] - r.e[t]*y[k]; s += d*d; } res = Math.max(res, Math.sqrt(s)); }
+      vecs.push(y);
+    }
+    out = { e: r.e.slice(0, m), vecs };
+    if (res < TOL) break;
+    start = vecs;
+  }
+  return out;
+}
+// Full sweep over the s grid, posting partial results as they come, then refining the minimum gap.
+function sweep(m){
+  const {v, N, Ecl, sp, S, nev} = m;
+  const levels = [], warmAt = [];
+  let warm = null, from = 0, last = Date.now();
+  for (let i=0;i<S.length;i++){
+    const [a, b] = sched(sp, S[i]), r = lowest(a, b, Ecl, N, warm, nev);
+    warm = r.vecs; warmAt.push(warm); levels.push(Array.from(r.e));
+    if (Date.now() - last > 120 || i === S.length - 1){ postMessage({kind:'part', v, from, levels:levels.slice(from)}); from = levels.length; last = Date.now(); }
+  }
+  let im = 0; for (let i=1;i<S.length;i++) if (levels[i][1]-levels[i][0] < levels[im][1]-levels[im][0]) im = i;
+  let best = {s:S[im], e0:levels[im][0], e1:levels[im][1]}, w = warmAt[im];
+  const at = s => { const [a, b] = sched(sp, s), r = lowest(a, b, Ecl, N, w, 2); w = r.vecs;
+    if (r.e[1]-r.e[0] < best.e1-best.e0) best = {s, e0:r.e[0], e1:r.e[1]}; return r.e[1]-r.e[0]; };
+  let lo = S[Math.max(im-1, 0)], hi = S[Math.min(im+1, S.length-1)];
+  const gr = (Math.sqrt(5)-1)/2;
+  let x1 = hi - gr*(hi-lo), x2 = lo + gr*(hi-lo), f1 = at(x1), f2 = at(x2);
+  for (let it=0; it<16; it++){
+    if (f1 < f2){ hi = x2; x2 = x1; f2 = f1; x1 = hi - gr*(hi-lo); f1 = at(x1); }
+    else { lo = x1; x1 = x2; f1 = f2; x2 = lo + gr*(hi-lo); f2 = at(x2); }
+  }
+  postMessage({kind:'done', v, s:best.s, e0:best.e0, e1:best.e1});
+}
+// Ground state at one s: probabilities, Bloch components and bond correlations.
+let lastCursor = null;
+function cursorJob(m){
+  const {v, N, Ecl, sp, s, edges} = m, D = 1 << N, [a, b] = sched(sp, s);
+  let psi, e0, e1;
+  if (a < 1e-12){
+    const sorted = Float64Array.from(Ecl).sort(), emin = sorted[0];
+    e0 = b/2*emin; e1 = b/2*sorted[1];
+    psi = Float64Array.from(Ecl, x => Math.abs(x - emin) < 1e-9 ? 1 : 0);
+    let n = 0; for (const x of psi) n += x; n = Math.sqrt(n); for (let k=0;k<D;k++) psi[k] /= n;
+  } else {
+    const r = lowest(a, b, Ecl, N, lastCursor && lastCursor.v === v ? lastCursor.vecs : null, 2);
+    lastCursor = {v, vecs:r.vecs}; psi = r.vecs[0]; e0 = r.e[0]; e1 = r.e[1];
+    let sum = 0; for (const x of psi) sum += x; if (sum < 0) for (let k=0;k<D;k++) psi[k] = -psi[k];
+  }
+  const p = Float64Array.from(psi, x => x*x), sz = new Float64Array(N), sx = new Float64Array(N);
+  const spin = (k, i) => ((k >> (N-1-i)) & 1) ? -1 : 1;
+  for (let k=0;k<D;k++) for (let i=0;i<N;i++){ sz[i] += p[k]*spin(k,i); sx[i] += psi[k]*psi[k ^ (1 << (N-1-i))]; }
+  const corr = edges.map(([i,j]) => { let c = 0; for (let k=0;k<D;k++) c += p[k]*spin(k,i)*spin(k,j); return c; });
+  postMessage({kind:'cursor', v, s, e0, e1, p, sz, sx, corr});
+}
+function handle(m){ if (m.kind === 'sweep') sweep(m); else cursorJob(m); }
+if (typeof WorkerGlobalScope !== 'undefined') onmessage = e => handle(e.data);
+</script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
@@ -160,88 +407,165 @@ footer{padding:14px 32px 28px;color:var(--ink-3);font-size:12.5px;max-width:100c
 const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const KB_H = 20.8366; // GHz per kelvin
-const DEFAULTS = {A0:6, ap:3, B1:5.2, bp:1.2, J:1, N:3, topo:'all', T:15, s:0.5, h:[0.4,0.1,-0.2,0.3,-0.1]};
+const SIZES = {
+  chain: ['2x1','3x1','4x1','5x1','6x1','7x1','8x1','9x1'],
+  square: ['2x2','3x2','4x2','3x3'],
+  triangular: ['2x2','3x2','3x3']
+};
+const DEFAULT_SIZE = {chain:'6x1', square:'3x2', triangular:'3x2'};
+const DEFAULTS = {A0:6, ap:3, B1:5.2, bp:1.2, J:1, T:15, s:0.5,
+  family:'network', net:'complete', N:3, p:0.5, lat:'chain', size:'6x1', bc:'open', signs:'uniform', seed:1,
+  h:[0.4,0.1,-0.2,0.3,-0.1,0.2,-0.3,0.1,-0.2]};
 let P = JSON.parse(JSON.stringify(DEFAULTS));
 
 // ---------- equation header
 try {
-  katex.render(String.raw`H(s) = -\frac{\color{#1F63C6}A(s)}{2}\sum_{i=1}^{N}\sigma^x_i \;+\; \frac{\color{#D9822B}B(s)}{2}\Big(\sum_{i} h_i\,\sigma^z_i + \sum_{i<j} J_{ij}\,\sigma^z_i\sigma^z_j\Big)`,
+  katex.render(String.raw`H(s) = -\frac{\color{#1F63C6}A(s)}{2}\sum_{i=1}^{N}\sigma^x_i \;+\; \frac{\color{#D9822B}B(s)}{2}\Big(\sum_{i} h_i\,\sigma^z_i + \sum_{(i,j)\in E} J_{ij}\,\sigma^z_i\sigma^z_j\Big)`,
     $('eq'), {displayMode:false, throwOnError:false, trust:true});
-} catch(e){ $('eq').textContent = 'H(s) = -A(s)/2 Σ σx_i + B(s)/2 ( Σ h_i σz_i + Σ J_ij σz_i σz_j )'; }
+} catch(e){ $('eq').textContent = 'H(s) = -A(s)/2 Σ σx_i + B(s)/2 ( Σ h_i σz_i + Σ_(i,j)∈E J_ij σz_i σz_j )'; }
 
-// ---------- physics
-const b0 = 0.04;
-const A = s => P.A0 * Math.pow(1 - s, P.ap);
-const B = s => P.B1 * (b0 + (1 - b0) * Math.pow(s, P.bp));
-const bit = (k, i, N) => ((k >> (N - 1 - i)) & 1) ? -1 : 1;
-function edges(N){
-  const E = [];
-  if (P.topo === 'all') { for (let i=0;i<N;i++) for (let j=i+1;j<N;j++) E.push([i,j]); }
-  else { for (let i=0;i<N-1;i++) E.push([i,i+1]); if (P.topo==='ring' && N>2) E.push([0,N-1]); }
-  return E;
+// ---------- graph families
+function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const circle = n => Array.from({length:n}, (_,i) => [Math.sin(2*Math.PI*i/n), -Math.cos(2*Math.PI*i/n)]);
+function buildGraph(){
+  const edges = [], seen = new Set();
+  const link = (i, j, wrap = null) => {
+    const key = Math.min(i,j) + '-' + Math.max(i,j);
+    if (i === j || seen.has(key)) return;
+    seen.add(key); edges.push({i, j, wrap});
+  };
+  let N, pos, tri = false;
+  if (P.family === 'network'){
+    if (P.net === 'chimera'){
+      N = 8; pos = [...Array(8)].map((_,i) => i < 4 ? [0, i] : [1.6, i-4]);
+      for (let i=0;i<4;i++) for (let j=4;j<8;j++) link(i, j);
+    } else if (P.net === 'star'){
+      N = P.N; pos = [[0,0], ...circle(N-1)];
+      for (let i=1;i<N;i++) link(0, i);
+    } else {
+      N = P.N; pos = circle(N);
+      const r = rng(P.seed*7919 + N);
+      for (let i=0;i<N;i++) for (let j=i+1;j<N;j++) if (P.net === 'complete' || r() < P.p) link(i, j);
+    }
+  } else {
+    const [Lx, Ly] = P.size.split('x').map(Number), per = P.bc === 'periodic';
+    N = Lx*Ly;
+    if (P.lat === 'chain' && per && N > 2){
+      pos = circle(N);
+      for (let i=0;i<N;i++) link(i, (i+1) % N);
+    } else {
+      tri = P.lat === 'triangular';
+      const id = (x, y) => y*Lx + x, dirs = tri ? [[1,0],[0,1],[1,1]] : [[1,0],[0,1]];
+      pos = [];
+      for (let y=0;y<Ly;y++) for (let x=0;x<Lx;x++) pos.push(tri ? [x - 0.5*y, y*Math.sqrt(3)/2] : [x, y]);
+      for (let y=0;y<Ly;y++) for (let x=0;x<Lx;x++) for (const [dx,dy] of dirs){
+        let X = x+dx, Y = y+dy, wrap = false;
+        if (X >= Lx){ if (!per || Lx < 3) continue; X -= Lx; wrap = true; }
+        if (Y >= Ly){ if (!per || Ly < 3) continue; Y -= Ly; wrap = true; }
+        link(id(x,y), id(X,Y), wrap ? [dx,dy] : null);
+      }
+    }
+  }
+  const r = rng(P.seed*104729 + 17);
+  for (const e of edges) e.J = P.signs === 'random' ? (r() < 0.5 ? -1 : 1) * P.J : P.J;
+  return {N, pos, edges, tri, nev: Math.min(N >= 8 ? 4 : 8, 1 << N)};
 }
-function classical(){
-  const N = P.N, D = 1 << N, E = edges(N), out = new Float64Array(D);
+const bit = (k, i, N) => ((k >> (N - 1 - i)) & 1) ? -1 : 1;
+function classical(m){
+  const N = m.N, D = 1 << N, out = new Float64Array(D);
   for (let k=0;k<D;k++){
     let e = 0;
     for (let i=0;i<N;i++) e += P.h[i] * bit(k,i,N);
-    for (const [i,j] of E) e += P.J * bit(k,i,N) * bit(k,j,N);
+    for (const {i,j,J} of m.edges) e += J * bit(k,i,N) * bit(k,j,N);
     out[k] = e;
   }
   return out;
 }
-function hamiltonian(s, Ecl){
-  const N = P.N, D = 1 << N, a = A(s), b = B(s);
-  const M = Array.from({length:D}, () => new Float64Array(D));
-  for (let k=0;k<D;k++){
-    M[k][k] = b/2 * Ecl[k];
-    for (let i=0;i<N;i++) M[k][k ^ (1 << (N-1-i))] = -a/2;
+const b0 = 0.04;
+const A = s => P.A0 * Math.pow(1 - s, P.ap);
+const B = s => P.B1 * (b0 + (1 - b0) * Math.pow(s, P.bp));
+const sp = () => ({A0:P.A0, ap:P.ap, B1:P.B1, bp:P.bp});
+
+// ---------- workers: one for the sweep, one for the cursor; each keeps only the newest pending job
+const WSRC = $('worker-src').textContent;
+function channel(onResult){
+  let busy = false, pending = null, post;
+  const recv = d => {
+    onResult(d);
+    if (d.kind === 'done' || d.kind === 'cursor'){ busy = false; if (pending){ const m = pending; pending = null; run(m); } }
+  };
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob([WSRC], {type:'text/javascript'})));
+    w.onmessage = e => recv(e.data);
+    w.onerror = e => { console.error(e.message); busy = false; };
+    post = m => w.postMessage(m);
+  } catch(err){
+    const handle = new Function('postMessage', WSRC + '\nreturn handle;')(recv);
+    post = m => setTimeout(() => handle(m), 0);
   }
-  return M;
+  const run = m => { busy = true; post(m); };
+  return m => { if (busy) pending = m; else run(m); };
 }
-// cyclic Jacobi for small symmetric matrices; returns sorted eigenvalues and optional ground vector
-function jacobi(M, wantVec){
-  const n = M.length, a = M.map(r => Float64Array.from(r));
-  const v = wantVec ? Array.from({length:n}, (_,i) => { const r = new Float64Array(n); r[i] = 1; return r; }) : null;
-  for (let sweep=0; sweep<80; sweep++){
-    let off = 0;
-    for (let p=0;p<n;p++) for (let q=p+1;q<n;q++) off += a[p][q]*a[p][q];
-    if (off < 1e-22) break;
-    for (let p=0;p<n;p++) for (let q=p+1;q<n;q++){
-      const apq = a[p][q]; if (Math.abs(apq) < 1e-15) continue;
-      const th = (a[q][q] - a[p][p]) / (2*apq);
-      const t = (th >= 0 ? 1 : -1) / (Math.abs(th) + Math.sqrt(th*th + 1));
-      const c = 1/Math.sqrt(t*t + 1), s = t*c;
-      for (let k=0;k<n;k++){ const x=a[k][p], y=a[k][q]; a[k][p]=c*x-s*y; a[k][q]=s*x+c*y; }
-      for (let k=0;k<n;k++){ const x=a[p][k], y=a[q][k]; a[p][k]=c*x-s*y; a[q][k]=s*x+c*y; }
-      if (v) for (let k=0;k<n;k++){ const x=v[k][p], y=v[k][q]; v[k][p]=c*x-s*y; v[k][q]=s*x+c*y; }
-    }
-  }
-  const idx = [...Array(n).keys()].sort((i,j) => a[i][i] - a[j][j]);
-  return { e: idx.map(i => a[i][i]), g: v ? v.map(r => r[idx[0]]) : null };
-}
+const sweepJob = channel(onSweep), cursorJob = channel(onCursor);
 
 // ---------- controls
-function buildH(){
-  const box = $('hbox'); box.innerHTML = '';
-  for (let i=0;i<P.N;i++){
+let hN = 0;
+function buildH(N){
+  const box = $('hbox'); box.innerHTML = ''; hN = N;
+  for (let i=0;i<N;i++){
     const r = document.createElement('div'); r.className = 'row';
     r.innerHTML = `<label for="h${i}">h${String.fromCharCode(0x2081+i)}</label><input type="range" id="h${i}" min="-1" max="1" step="0.05" value="${P.h[i]}"><output id="h${i}o">${(+P.h[i]).toFixed(2)}</output>`;
     box.appendChild(r);
     r.querySelector('input').addEventListener('input', e => { P.h[i] = +e.target.value; $('h'+i+'o').textContent = P.h[i].toFixed(2); full(); });
   }
 }
-const sliders = {A0:1, ap:1, B1:1, bp:1, J:2, T:0};
+function fillSizes(){
+  $('size').innerHTML = SIZES[P.lat].map(v => {
+    const [x, y] = v.split('x');
+    return `<option value="${v}">${y === '1' ? x + ' spins' : x + ' × ' + y + ' (' + x*y + ' spins)'}</option>`;
+  }).join('');
+  if (!SIZES[P.lat].includes(P.size)) P.size = DEFAULT_SIZE[P.lat];
+  $('size').value = P.size;
+}
+const HINTS = {
+  complete: 'Every spin couples to every other spin: no geometry, mean-field-like.',
+  star: 'Spin 1 is a hub coupled to all others; the others do not touch.',
+  random: 'Each pair is coupled with probability p. New random draw resamples the edges.',
+  chimera: "The 8-qubit K₄,₄ unit cell of D-Wave's Chimera topology: each spin in one column couples to all four in the other.",
+  chain: 'Nearest-neighbour chain. Periodic closes it into a ring.',
+  square: 'Nearest neighbours on a square grid. Bipartite, so J > 0 is not frustrated.',
+  triangular: 'Every plaquette is a triangle, so J > 0 is geometrically frustrated.'
+};
+function syncVisibility(){
+  const net = P.family === 'network';
+  $('netbox').hidden = !net; $('latbox').hidden = net;
+  $('Nrow').hidden = !net || P.net === 'chimera';
+  $('prow').hidden = !net || P.net !== 'random';
+  $('seedrow').hidden = !((net && P.net === 'random') || P.signs === 'random');
+  let hint = HINTS[net ? P.net : P.lat];
+  if (!net && P.bc === 'periodic' && P.lat !== 'chain') hint += ' Periodic bonds wrap only along sides of length 3 or more.';
+  $('ghint').textContent = hint;
+}
+const sliders = {A0:1, ap:1, B1:1, bp:1, J:2, T:0, p:2};
 function syncControls(){
   for (const k of Object.keys(sliders)){ $(k).value = P[k]; $(k+'o').textContent = (+P[k]).toFixed(sliders[k]); }
   $('s').value = P.s; $('so').textContent = P.s.toFixed(2);
   $('spdo').textContent = $('spd').value;
-  $('N').value = P.N; $('topo').value = P.topo;
-  buildH();
+  for (const r of document.querySelectorAll('input[name=family]')) r.checked = r.value === P.family;
+  $('net').value = P.net; $('N').value = P.N; $('lat').value = P.lat; $('bc').value = P.bc; $('signs').value = P.signs;
+  fillSizes(); syncVisibility();
+  hN = 0;
 }
-for (const k of Object.keys(sliders)) $(k).addEventListener('input', e => { P[k] = +e.target.value; $(k+'o').textContent = P[k].toFixed(sliders[k]); full(); });
-$('N').addEventListener('change', e => { P.N = +e.target.value; buildH(); full(); });
-$('topo').addEventListener('change', e => { P.topo = e.target.value; full(); });
+for (const k of Object.keys(sliders)) $(k).addEventListener('input', e => {
+  P[k] = +e.target.value; $(k+'o').textContent = P[k].toFixed(sliders[k]);
+  if (k === 'T') thermal(); else full();
+});
+for (const r of document.querySelectorAll('input[name=family]')) r.addEventListener('change', e => { P.family = e.target.value; syncVisibility(); full(); });
+const onSelect = (id, key, conv = x => x) => $(id).addEventListener('change', e => { P[key] = conv(e.target.value); if (key === 'lat') fillSizes(); syncVisibility(); full(); });
+onSelect('net', 'net'); onSelect('N', 'N', Number); onSelect('lat', 'lat'); onSelect('size', 'size'); onSelect('bc', 'bc'); onSelect('signs', 'signs');
+$('reseed').addEventListener('click', () => { P.seed++; full(); });
+$('hzero').addEventListener('click', () => { P.h = P.h.map(() => 0); buildH(model.N); full(); });
+$('hrand').addEventListener('click', () => { P.h = P.h.map(() => Math.round((Math.random()*2 - 1) * 20) / 20); buildH(model.N); full(); });
 $('s').addEventListener('input', e => { P.s = +e.target.value; $('so').textContent = P.s.toFixed(2); cursor(); });
 $('spd').addEventListener('input', e => $('spdo').textContent = e.target.value);
 $('rs').addEventListener('click', () => { P.s = 0; $('s').value = 0; $('so').textContent = '0.00'; cursor(); });
@@ -286,53 +610,152 @@ const c4 = new Chart($('c4'), {type:'bar', data:{labels:[], datasets:[{data:[], 
     scales:{ x:{ticks:{color:css('--ink-2'), font:{family:'"IBM Plex Mono", ui-monospace, monospace'}, autoSkip:false, maxRotation:60}, grid:{display:false}, border:{color:css('--rule')}},
              y:{min:0, max:1, title:{display:true, text:'probability', color:css('--ink-3')}, ticks:{color:css('--ink-3')}, grid:{color:css('--grid')}, border:{display:false}} }}});
 
+// ---------- spin graph drawing
+const SVGNS = 'http://www.w3.org/2000/svg', GW = 640, GH = 340, GR = 15;
+const el = (tag, attrs, parent) => { const n = document.createElementNS(SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; };
+let G = null;
+function drawGraph(){
+  const svg = $('g'); svg.textContent = '';
+  const {pos, edges, tri} = model;
+  const disp = w => tri ? [w[0] - 0.5*w[1], w[1]*Math.sqrt(3)/2] : w;
+  const hasWrap = edges.some(e => e.wrap);
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [x,y] of pos){ x0 = Math.min(x0,x); x1 = Math.max(x1,x); y0 = Math.min(y0,y); y1 = Math.max(y1,y); }
+  if (hasWrap){ x0 -= 0.5; x1 += 0.5; y0 -= 0.5; y1 += 0.5; }
+  const sc = Math.min((GW - 80) / ((x1 - x0) || 1), (GH - 70) / ((y1 - y0) || 1), 150);
+  const mx = (x0 + x1)/2, my = (y0 + y1)/2;
+  const at = ([x,y]) => [GW/2 + (x - mx)*sc, GH/2 + (y - my)*sc];
+  const eg = el('g', {}, svg), ng = el('g', {}, svg);
+  const Jmax = Math.max(1e-9, ...edges.map(e => Math.abs(e.J)));
+  G = {edges:[], nodes:[]};
+  for (const e of edges){
+    const attrs = {stroke:'var(--other)', 'stroke-width':(1.2 + 2.3*Math.abs(e.J)/Jmax).toFixed(2), 'stroke-linecap':'round'};
+    if (e.J > 0) attrs['stroke-dasharray'] = '6 5';
+    if (e.J === 0) attrs.opacity = 0.35;
+    const g = el('g', attrs, eg), segs = [];
+    if (!e.wrap) segs.push([at(pos[e.i]), at(pos[e.j])]);
+    else {
+      const [dx, dy] = disp(e.wrap);
+      segs.push([at(pos[e.i]), at([pos[e.i][0] + dx/2, pos[e.i][1] + dy/2])]);
+      segs.push([at(pos[e.j]), at([pos[e.j][0] - dx/2, pos[e.j][1] - dy/2])]);
+    }
+    for (const [[ax,ay],[bx,by]] of segs) el('line', {x1:ax, y1:ay, x2:bx, y2:by}, g);
+    G.edges.push({g, title:el('title', {}, g), e});
+  }
+  const cx = pos.reduce((s,p) => s + p[0], 0)/pos.length, cy = pos.reduce((s,p) => s + p[1], 0)/pos.length;
+  pos.forEach((p, i) => {
+    const [x, y] = at(p), g = el('g', {transform:`translate(${x.toFixed(1)} ${y.toFixed(1)})`}, ng);
+    const circ = el('circle', {r:GR, fill:'var(--panel)', stroke:'var(--ink-3)', 'stroke-width':1.5}, g);
+    const arrow = el('path', {d:'', stroke:'var(--ink)', 'stroke-width':2.2, fill:'none', 'stroke-linecap':'round', 'stroke-linejoin':'round'}, g);
+    // networks: label outward from the centre; lattices: up-left, in the gap between bonds
+    let ux = p[0] - cx, uy = p[1] - cy, L = Math.hypot(ux, uy);
+    if (P.family === 'lattice' && !(P.lat === 'chain' && P.bc === 'periodic') || L < 1e-6){ ux = -0.8; uy = -0.6; L = 1; }
+    el('text', {x:(ux/L*(GR+10)).toFixed(1), y:(uy/L*(GR+10)).toFixed(1), 'text-anchor':'middle', 'dominant-baseline':'central'}, g).textContent = i + 1;
+    G.nodes.push({circ, arrow, title:el('title', {}, g)});
+  });
+  $('wrapnote').hidden = !hasWrap;
+  $('st_n').textContent = model.N;
+  $('st_e').textContent = edges.length;
+  $('st_d').textContent = 2 ** model.N;
+  $('st_sv').textContent = model.N <= 6 ? 'exact (dense)' : `Krylov, lowest ${model.nev}`;
+  if (lastCur && lastCur.v === ver) updateGraph(lastCur);
+}
+function updateGraph(d){
+  if (!G) return;
+  G.nodes.forEach((n, i) => {
+    const sx = d.sx[i], sz = d.sz[i], len = (GR - 3) * Math.min(1, Math.hypot(sx, sz));
+    const ang = Math.atan2(-sz, sx), tx = len*Math.cos(ang), ty = len*Math.sin(ang);
+    let path = `M${(-tx).toFixed(2)} ${(-ty).toFixed(2)}L${tx.toFixed(2)} ${ty.toFixed(2)}`;
+    if (len > 4){
+      const hl = Math.min(5, len*0.6);
+      for (const da of [2.5, -2.5]) path += `M${tx.toFixed(2)} ${ty.toFixed(2)}l${(hl*Math.cos(ang+da)).toFixed(2)} ${(hl*Math.sin(ang+da)).toFixed(2)}`;
+    }
+    n.arrow.setAttribute('d', len < 0.5 ? '' : path);
+    n.circ.setAttribute('fill', `color-mix(in srgb, var(--ink) ${Math.round((sz + 1)/2*22)}%, var(--panel))`);
+    n.title.textContent = `Spin ${i+1}: h = ${(+P.h[i]).toFixed(2)}, ⟨σz⟩ = ${sz.toFixed(3)}, ⟨σx⟩ = ${sx.toFixed(3)}`;
+  });
+  G.edges.forEach((ge, k) => {
+    const J = ge.e.J, c = d.corr[k], q = -Math.sign(J) * c;
+    ge.g.setAttribute('stroke', J === 0 ? 'var(--other)' : `color-mix(in srgb, var(${q >= 0 ? '--bar' : '--thermal'}) ${Math.round(Math.min(1, Math.abs(q))*100)}%, var(--other))`);
+    ge.title.textContent = `Bond ${ge.e.i+1}–${ge.e.j+1}: J = ${J.toFixed(2)}, ⟨σz σz⟩ = ${c.toFixed(3)}${ge.e.wrap ? ' (periodic)' : ''}`;
+  });
+}
+
 // ---------- compute and draw
-let Ecl = null, S = [], spec = [], gaps = [];
+let model = null, Ecl = null, ver = 0, S = [], spec = [], mg = null, lastCur = null, drawQueued = false;
 function full(){
-  Ecl = classical();
-  const D = 1 << P.N, NS = P.N >= 5 ? 61 : 101, nl = Math.min(8, D);
+  model = buildGraph();
+  if (model.N !== hN) buildH(model.N);
+  Ecl = classical(model); ver++;
+  const N = model.N, NS = N <= 5 ? 101 : N === 6 ? 81 : N === 7 ? 61 : 41;
   S = Array.from({length:NS}, (_,i) => i/(NS-1));
-  spec = S.map(s => jacobi(hamiltonian(s, Ecl), false).e);
-  gaps = spec.map(e => e[1] - e[0]);
-  let im = 0; for (let i=1;i<NS;i++) if (gaps[i] < gaps[im]) im = i;
+  spec = new Array(NS).fill(null); mg = null;
 
   c1.data.datasets[0].data = S.map(s => ({x:s, y:A(s)}));
   c1.data.datasets[1].data = S.map(s => ({x:s, y:B(s)}));
+  const emin = Math.min(...Ecl); let deg = 0; for (const e of Ecl) if (Math.abs(e - emin) < 1e-9) deg++;
+  $('r_deg').textContent = deg;
+  $('c2sub').textContent = `Lowest ${model.nev} levels versus s; red markers show the minimum gap`;
 
-  const ds = [];
+  drawGraph();
+  thermal();
+  drawSpec();
+  sweepJob({kind:'sweep', v:ver, N, Ecl, sp:sp(), S, nev:model.nev});
+  cursor();
+}
+function onSweep(d){
+  if (d.v !== ver) return;
+  if (d.kind === 'part') d.levels.forEach((l, k) => spec[d.from + k] = l);
+  else mg = d;
+  if (!drawQueued){ drawQueued = true; requestAnimationFrame(drawSpec); }
+}
+function drawSpec(){
+  drawQueued = false;
+  const pts = [];
+  spec.forEach((l, i) => { if (l) pts.push([S[i], l]); });
+  const nl = model.nev, ds = [];
   for (let k=nl-1;k>=0;k--){
-    ds.push({data:S.map((s,i)=>({x:s, y:spec[i][k]})),
+    ds.push({data:pts.map(([s,l]) => ({x:s, y:l[k]})),
       borderColor: k===0 ? css('--gs') : k===1 ? css('--ex') : css('--other'),
       borderWidth: k<2 ? 2.5 : 1.3, borderDash: k===1 ? [7,5] : []});
   }
-  ds.push({data:[{x:S[im], y:spec[im][0]}, {x:S[im], y:spec[im][1]}], showLine:false, pointRadius:5, pointBackgroundColor:css('--thermal'), borderColor:css('--thermal')});
+  if (mg) ds.push({data:[{x:mg.s, y:mg.e0}, {x:mg.s, y:mg.e1}], showLine:false, pointRadius:5, pointBackgroundColor:css('--thermal'), borderColor:css('--thermal')});
   c2.data.datasets = ds;
-
+  c3.data.datasets[0].data = pts.map(([s,l]) => ({x:s, y:l[1] - l[0]}));
+  const done = pts.length === S.length && mg;
+  $('c2note').textContent = done ? '' : `computing ${pts.length}/${S.length}…`;
+  $('r_m').textContent = mg ? (mg.e1 - mg.e0).toFixed(3) : '…';
+  $('r_ms').textContent = mg ? mg.s.toFixed(3) : '…';
+  c1.update('none'); c2.update('none'); c3.update('none');
+}
+function thermal(){
   const kT = KB_H * P.T * 1e-3;
-  c3.data.datasets[0].data = S.map((s,i) => ({x:s, y:gaps[i]}));
   c3.data.datasets[1].data = [{x:0, y:kT}, {x:1, y:kT}];
-
-  const emin = Math.min(...Ecl); let deg = 0; for (const e of Ecl) if (Math.abs(e - emin) < 1e-9) deg++;
-  $('r_m').textContent = gaps[im].toFixed(3);
-  $('r_ms').textContent = S[im].toFixed(2);
   $('r_t').textContent = kT.toFixed(3);
-  $('r_deg').textContent = deg;
-  cursor();
+  c3.update('none');
 }
 function cursor(){
-  const s = P.s, r = jacobi(hamiltonian(s, Ecl), true), N = P.N, D = 1 << N;
+  const s = P.s, b = B(s);
   for (const ch of [c1,c2,c3]) ch.options.plugins.cursor.x = s;
-  const p = r.g.map(x => x*x);
-  let idx = [...Array(D).keys()];
-  if (D > 8) idx = idx.sort((i,j) => p[j] - p[i]).slice(0, 8);
-  c4.data.labels = idx.map(k => [...Array(N)].map((_,i) => bit(k,i,N) > 0 ? '+' : '−').join(' '));
-  c4.data.datasets[0].data = idx.map(k => p[k]);
-  $('c4cap').firstChild.textContent = D > 8 ? `Ground state at s = ${s.toFixed(2)} (8 most probable)` : `Ground state at s = ${s.toFixed(2)}`;
-  const b = B(s);
   $('r_s').textContent = s.toFixed(2);
   $('r_g').textContent = b > 0 ? (A(s)/b).toFixed(2) : '∞';
-  $('r_d').textContent = (r.e[1] - r.e[0]).toFixed(3);
-  c1.update(); c2.update(); c3.update(); c4.update();
+  c1.update('none'); c2.update('none'); c3.update('none');
+  cursorJob({kind:'cursor', v:ver, N:model.N, Ecl, sp:sp(), s, edges:model.edges.map(e => [e.i, e.j])});
+}
+function onCursor(d){
+  if (d.v !== ver) return;
+  lastCur = d;
+  const N = model.N, D = 1 << N;
+  let idx = [...Array(D).keys()];
+  if (D > 8) idx = idx.sort((i,j) => d.p[j] - d.p[i]).slice(0, 8);
+  const sep = N > 5 ? '' : ' ';
+  c4.data.labels = idx.map(k => [...Array(N)].map((_,i) => bit(k,i,N) > 0 ? '+' : '−').join(sep));
+  c4.data.datasets[0].data = idx.map(k => d.p[k]);
+  $('c4cap').firstChild.textContent = D > 8 ? `Ground state at s = ${d.s.toFixed(2)} (8 most probable)` : `Ground state at s = ${d.s.toFixed(2)}`;
+  $('gcap').firstChild.textContent = `Spin graph at s = ${d.s.toFixed(2)}`;
+  $('r_d').textContent = (d.e1 - d.e0).toFixed(3);
+  c4.update('none');
+  updateGraph(d);
 }
 
 // ---------- play
