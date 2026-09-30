@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantum annealing Hamiltonian explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<style>
+:root{
+  --paper:#F6F7F9; --panel:#FFFFFF; --ink:#18202E; --ink-2:#4A5466; --ink-3:#7C8596;
+  --rule:#DDE1E8; --grid:#E6E9EF;
+  --drv:#1F63C6; --prob:#D9822B; --thermal:#C23B3B; --gs:#1F63C6; --ex:#D9822B; --other:#AEB5C2; --bar:#1C9A73;
+  --focus:#1F63C6;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --paper:#12161E; --panel:#1A1F29; --ink:#E9ECF2; --ink-2:#B4BCCB; --ink-3:#8791A3;
+    --rule:#2C3342; --grid:#262C39; --drv:#5B97EE; --prob:#EDA052; --thermal:#E26868; --gs:#5B97EE; --ex:#EDA052; --other:#5A6273; --bar:#2FBF90; --focus:#5B97EE; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.5}
+header{padding:28px 32px 18px;border-bottom:1px solid var(--rule);background:var(--panel)}
+h1{font-size:20px;font-weight:600;margin:0 0 4px;letter-spacing:-0.01em}
+.sub{color:var(--ink-2);margin:0 0 18px;max-width:78ch}
+.eq{font-size:22px;overflow-x:auto;padding:6px 0 2px}
+.readouts{display:flex;flex-wrap:wrap;gap:28px;padding:14px 32px;border-bottom:1px solid var(--rule);background:var(--panel)}
+.ro span{display:block;font-size:12px;color:var(--ink-3)}
+.ro b{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:500;font-size:17px;font-variant-numeric:tabular-nums}
+main{display:grid;grid-template-columns:320px minmax(0,1fr);gap:0;min-height:calc(100vh - 220px)}
+aside{border-right:1px solid var(--rule);padding:18px 22px 28px;background:var(--panel)}
+fieldset{border:0;border-top:1px solid var(--rule);margin:0;padding:14px 0 10px}
+fieldset:first-of-type{border-top:0;padding-top:0}
+legend{font-weight:600;font-size:14px;padding:0;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+legend i{display:inline-block;width:10px;height:10px;border-radius:2px}
+.hint{font-size:12.5px;color:var(--ink-3);margin:0 0 8px}
+.row{display:grid;grid-template-columns:96px 1fr 50px;align-items:center;gap:10px;margin:6px 0;font-size:13.5px}
+.row label{color:var(--ink-2)}
+.row output{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--drv)}
+select,button{font:inherit;font-size:13.5px;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-radius:6px;padding:6px 10px}
+button{cursor:pointer}
+button:hover{border-color:var(--ink-3)}
+button.primary{background:var(--ink);color:var(--panel);border-color:var(--ink);min-width:84px}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:18px 24px 28px}
+figure{margin:0;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:12px 14px 10px}
+figcaption{font-size:14px;font-weight:600;margin-bottom:2px}
+figcaption small{display:block;font-weight:400;font-size:12.5px;color:var(--ink-3)}
+.cv{position:relative;height:300px}
+.key{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--ink-2);margin:4px 0 6px}
+.key > span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:18px;height:0;border-top:2.5px solid}
+.sw.d{border-top-style:dashed}
+footer{padding:14px 32px 28px;color:var(--ink-3);font-size:12.5px;max-width:100ch}
+@media (max-width:980px){main{grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--rule)}.plots{grid-template-columns:1fr}}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Quantum annealing Hamiltonian explorer</h1>
+  <p class="sub">Every parameter in the equation has a control on the left. The spectrum is recomputed by exact diagonalization each time you move one.</p>
+  <div class="eq" id="eq"></div>
+</header>
+
+<section class="readouts" aria-live="polite">
+  <div class="ro"><span>Anneal fraction s</span><b id="r_s">0.50</b></div>
+  <div class="ro"><span>Γ = A/B at s</span><b id="r_g">0</b></div>
+  <div class="ro"><span>Gap at s (GHz)</span><b id="r_d">0</b></div>
+  <div class="ro"><span>Minimum gap (GHz)</span><b id="r_m">0</b></div>
+  <div class="ro"><span>Minimum at s</span><b id="r_ms">0</b></div>
+  <div class="ro"><span>k<sub>B</sub>T/h (GHz)</span><b id="r_t">0</b></div>
+  <div class="ro"><span>Ground-state degeneracy at s = 1</span><b id="r_deg">1</b></div>
+</section>
+
+<main>
+<aside>
+  <fieldset>
+    <legend><i style="background:var(--drv)"></i><span>Driver A(s)</span></legend>
+    <p class="hint">A(s) = A₀ (1 − s)<sup>p</sup></p>
+    <div class="row"><label for="A0">A₀ (GHz)</label><input type="range" id="A0" min="0.5" max="10" step="0.1"><output for="A0" id="A0o"></output></div>
+    <div class="row"><label for="ap">Decay power p</label><input type="range" id="ap" min="0.3" max="6" step="0.1"><output id="apo"></output></div>
+  </fieldset>
+
+  <fieldset>
+    <legend><i style="background:var(--prob)"></i><span>Problem scale B(s)</span></legend>
+    <p class="hint">B(s) = B₁ (b₀ + (1 − b₀) s<sup>q</sup>)</p>
+    <div class="row"><label for="B1">B₁ (GHz)</label><input type="range" id="B1" min="0.5" max="10" step="0.1"><output id="B1o"></output></div>
+    <div class="row"><label for="bp">Rise power q</label><input type="range" id="bp" min="0.3" max="4" step="0.1"><output id="bpo"></output></div>
+    <p class="hint">b₀ = 0.04 keeps a small problem term at s = 0. These shapes are illustrative, not a specific processor.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend><span>Spins and couplings J<sub>ij</sub></span></legend>
+    <div class="row"><label for="N">Spins N</label><select id="N"><option>2</option><option selected>3</option><option>4</option><option>5</option></select><span></span></div>
+    <div class="row"><label for="topo">Graph</label><select id="topo"><option value="all" selected>All pairs</option><option value="chain">Open chain</option><option value="ring">Ring</option></select><span></span></div>
+    <div class="row"><label for="J">J (all edges)</label><input type="range" id="J" min="-1" max="1" step="0.05"><output id="Jo"></output></div>
+    <p class="hint">J &gt; 0 antiferromagnetic (frustrated on odd rings), J &lt; 0 ferromagnetic.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend><span>Local fields h<sub>i</sub></span></legend>
+    <div id="hbox"></div>
+    <p class="hint">Set all fields to 0 to see the ± twin states become degenerate.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend><i style="background:var(--thermal)"></i><span>Environment</span></legend>
+    <div class="row"><label for="T">T (mK)</label><input type="range" id="T" min="0" max="40" step="1"><output id="To"></output></div>
+  </fieldset>
+
+  <fieldset>
+    <legend><span>Anneal</span></legend>
+    <div class="row"><label for="s">s</label><input type="range" id="s" min="0" max="1" step="0.01"><output id="so"></output></div>
+    <div class="row"><label for="spd">Play speed</label><input type="range" id="spd" min="1" max="10" step="1" value="4"><output id="spdo"></output></div>
+    <div class="btns">
+      <button class="primary" id="play" type="button">Play</button>
+      <button id="rs" type="button">Reset s</button>
+      <button id="def" type="button">Restore defaults</button>
+    </div>
+  </fieldset>
+</aside>
+
+<section class="plots">
+  <figure>
+    <figcaption>Schedule functions<small>How strongly the driver and the problem act at each s</small></figcaption>
+    <div class="key"><span><i class="sw d" style="border-color:var(--drv)"></i>A(s)</span><span><i class="sw" style="border-color:var(--prob)"></i>B(s)</span></div>
+    <div class="cv"><canvas id="c1" role="img" aria-label="A(s) and B(s) versus s."></canvas></div>
+  </figure>
+  <figure>
+    <figcaption>Energy levels of H(s)<small>Lowest levels versus s; red markers show the minimum gap</small></figcaption>
+    <div class="key"><span><i class="sw" style="border-color:var(--gs)"></i>ground E₀</span><span><i class="sw d" style="border-color:var(--ex)"></i>first excited E₁</span><span><i class="sw" style="border-color:var(--other);border-top-width:1.5px"></i>higher levels</span></div>
+    <div class="cv"><canvas id="c2" role="img" aria-label="Energy levels of H(s) versus s."></canvas></div>
+  </figure>
+  <figure>
+    <figcaption>Gap versus thermal energy<small>Where the gap drops below k<sub>B</sub>T/h, thermal excitation becomes likely</small></figcaption>
+    <div class="key"><span><i class="sw" style="border-color:var(--gs)"></i>Δ(s) = E₁ − E₀</span><span><i class="sw d" style="border-color:var(--thermal)"></i><span>k<sub>B</sub>T/h</span></span></div>
+    <div class="cv"><canvas id="c3" role="img" aria-label="Gap between ground and first excited state versus s, with the thermal energy line."></canvas></div>
+  </figure>
+  <figure>
+    <figcaption id="c4cap">Ground state at current s<small>Probability of each classical configuration in the ground state</small></figcaption>
+    <div class="key"><span><i class="sw" style="border-color:var(--bar);border-top-width:8px;width:10px"></i>|⟨z|ψ₀(s)⟩|²</span></div>
+    <div class="cv"><canvas id="c4" role="img" aria-label="Bar chart of ground-state probabilities over classical configurations."></canvas></div>
+  </figure>
+</section>
+</main>
+
+<footer>
+  D-Wave convention: energies in GHz (energy divided by Planck's constant), spins s<sub>i</sub> = ±1 with + for σ<sup>z</sup> = +1, J<sub>ij</sub> &lt; 0 ferromagnetic.
+  k<sub>B</sub>/h = 20.84 GHz/K. Schedule curves are illustrative; for quantitative work use the published schedule of the processor you run on.
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const KB_H = 20.8366; // GHz per kelvin
+const DEFAULTS = {A0:6, ap:3, B1:5.2, bp:1.2, J:1, N:3, topo:'all', T:15, s:0.5, h:[0.4,0.1,-0.2,0.3,-0.1]};
+let P = JSON.parse(JSON.stringify(DEFAULTS));
+
+// ---------- equation header
+try {
+  katex.render(String.raw`H(s) = -\frac{\color{#1F63C6}A(s)}{2}\sum_{i=1}^{N}\sigma^x_i \;+\; \frac{\color{#D9822B}B(s)}{2}\Big(\sum_{i} h_i\,\sigma^z_i + \sum_{i<j} J_{ij}\,\sigma^z_i\sigma^z_j\Big)`,
+    $('eq'), {displayMode:false, throwOnError:false, trust:true});
+} catch(e){ $('eq').textContent = 'H(s) = -A(s)/2 Σ σx_i + B(s)/2 ( Σ h_i σz_i + Σ J_ij σz_i σz_j )'; }
+
+// ---------- physics
+const b0 = 0.04;
+const A = s => P.A0 * Math.pow(1 - s, P.ap);
+const B = s => P.B1 * (b0 + (1 - b0) * Math.pow(s, P.bp));
+const bit = (k, i, N) => ((k >> (N - 1 - i)) & 1) ? -1 : 1;
+function edges(N){
+  const E = [];
+  if (P.topo === 'all') { for (let i=0;i<N;i++) for (let j=i+1;j<N;j++) E.push([i,j]); }
+  else { for (let i=0;i<N-1;i++) E.push([i,i+1]); if (P.topo==='ring' && N>2) E.push([0,N-1]); }
+  return E;
+}
+function classical(){
+  const N = P.N, D = 1 << N, E = edges(N), out = new Float64Array(D);
+  for (let k=0;k<D;k++){
+    let e = 0;
+    for (let i=0;i<N;i++) e += P.h[i] * bit(k,i,N);
+    for (const [i,j] of E) e += P.J * bit(k,i,N) * bit(k,j,N);
+    out[k] = e;
+  }
+  return out;
+}
+function hamiltonian(s, Ecl){
+  const N = P.N, D = 1 << N, a = A(s), b = B(s);
+  const M = Array.from({length:D}, () => new Float64Array(D));
+  for (let k=0;k<D;k++){
+    M[k][k] = b/2 * Ecl[k];
+    for (let i=0;i<N;i++) M[k][k ^ (1 << (N-1-i))] = -a/2;
+  }
+  return M;
+}
+// cyclic Jacobi for small symmetric matrices; returns sorted eigenvalues and optional ground vector
+function jacobi(M, wantVec){
+  const n = M.length, a = M.map(r => Float64Array.from(r));
+  const v = wantVec ? Array.from({length:n}, (_,i) => { const r = new Float64Array(n); r[i] = 1; return r; }) : null;
+  for (let sweep=0; sweep<80; sweep++){
+    let off = 0;
+    for (let p=0;p<n;p++) for (let q=p+1;q<n;q++) off += a[p][q]*a[p][q];
+    if (off < 1e-22) break;
+    for (let p=0;p<n;p++) for (let q=p+1;q<n;q++){
+      const apq = a[p][q]; if (Math.abs(apq) < 1e-15) continue;
+      const th = (a[q][q] - a[p][p]) / (2*apq);
+      const t = (th >= 0 ? 1 : -1) / (Math.abs(th) + Math.sqrt(th*th + 1));
+      const c = 1/Math.sqrt(t*t + 1), s = t*c;
+      for (let k=0;k<n;k++){ const x=a[k][p], y=a[k][q]; a[k][p]=c*x-s*y; a[k][q]=s*x+c*y; }
+      for (let k=0;k<n;k++){ const x=a[p][k], y=a[q][k]; a[p][k]=c*x-s*y; a[q][k]=s*x+c*y; }
+      if (v) for (let k=0;k<n;k++){ const x=v[k][p], y=v[k][q]; v[k][p]=c*x-s*y; v[k][q]=s*x+c*y; }
+    }
+  }
+  const idx = [...Array(n).keys()].sort((i,j) => a[i][i] - a[j][j]);
+  return { e: idx.map(i => a[i][i]), g: v ? v.map(r => r[idx[0]]) : null };
+}
+
+// ---------- controls
+function buildH(){
+  const box = $('hbox'); box.innerHTML = '';
+  for (let i=0;i<P.N;i++){
+    const r = document.createElement('div'); r.className = 'row';
+    r.innerHTML = `<label for="h${i}">h${String.fromCharCode(0x2081+i)}</label><input type="range" id="h${i}" min="-1" max="1" step="0.05" value="${P.h[i]}"><output id="h${i}o">${(+P.h[i]).toFixed(2)}</output>`;
+    box.appendChild(r);
+    r.querySelector('input').addEventListener('input', e => { P.h[i] = +e.target.value; $('h'+i+'o').textContent = P.h[i].toFixed(2); full(); });
+  }
+}
+const sliders = {A0:1, ap:1, B1:1, bp:1, J:2, T:0};
+function syncControls(){
+  for (const k of Object.keys(sliders)){ $(k).value = P[k]; $(k+'o').textContent = (+P[k]).toFixed(sliders[k]); }
+  $('s').value = P.s; $('so').textContent = P.s.toFixed(2);
+  $('spdo').textContent = $('spd').value;
+  $('N').value = P.N; $('topo').value = P.topo;
+  buildH();
+}
+for (const k of Object.keys(sliders)) $(k).addEventListener('input', e => { P[k] = +e.target.value; $(k+'o').textContent = P[k].toFixed(sliders[k]); full(); });
+$('N').addEventListener('change', e => { P.N = +e.target.value; buildH(); full(); });
+$('topo').addEventListener('change', e => { P.topo = e.target.value; full(); });
+$('s').addEventListener('input', e => { P.s = +e.target.value; $('so').textContent = P.s.toFixed(2); cursor(); });
+$('spd').addEventListener('input', e => $('spdo').textContent = e.target.value);
+$('rs').addEventListener('click', () => { P.s = 0; $('s').value = 0; $('so').textContent = '0.00'; cursor(); });
+$('def').addEventListener('click', () => { stop(); P = JSON.parse(JSON.stringify(DEFAULTS)); syncControls(); full(); });
+
+// ---------- charts
+Chart.defaults.font.family = '"IBM Plex Sans", system-ui, sans-serif';
+Chart.defaults.font.size = 12;
+const cursorPlugin = {
+  id: 'cursor',
+  afterDatasetsDraw(ch){
+    const x = ch.options.plugins.cursor && ch.options.plugins.cursor.x;
+    if (x == null) return;
+    const {ctx, chartArea:{top,bottom}, scales:{x:xs}} = ch;
+    const px = xs.getPixelForValue(x);
+    ctx.save(); ctx.strokeStyle = css('--ink-3'); ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bottom); ctx.stroke(); ctx.restore();
+  }
+};
+Chart.register(cursorPlugin);
+function lineOpts(ytitle){
+  return {
+    responsive:true, maintainAspectRatio:false, animation:false, parsing:false, normalized:true,
+    plugins:{ legend:{display:false}, tooltip:{enabled:false}, cursor:{x:P.s} },
+    elements:{ point:{radius:0} },
+    scales:{
+      x:{ type:'linear', min:0, max:1, title:{display:true, text:'s', color:css('--ink-3')}, ticks:{color:css('--ink-3'), stepSize:0.1}, grid:{display:false}, border:{color:css('--rule')} },
+      y:{ title:{display:true, text:ytitle, color:css('--ink-3')}, ticks:{color:css('--ink-3')}, grid:{color:css('--grid')}, border:{display:false} }
+    }
+  };
+}
+const c1 = new Chart($('c1'), {type:'line', data:{datasets:[
+  {data:[], borderColor:css('--drv'), borderWidth:2.5, borderDash:[7,5]},
+  {data:[], borderColor:css('--prob'), borderWidth:2.5}]}, options:lineOpts('GHz')});
+const c2 = new Chart($('c2'), {type:'line', data:{datasets:[]}, options:lineOpts('Energy (GHz)')});
+const c3o = lineOpts('GHz'); c3o.scales.y.min = 0;
+const c3 = new Chart($('c3'), {type:'line', data:{datasets:[
+  {data:[], borderColor:css('--gs'), borderWidth:2.5, fill:'origin', backgroundColor:css('--gs')+'1A'},
+  {data:[], borderColor:css('--thermal'), borderWidth:2, borderDash:[7,5]}]}, options:c3o});
+const c4 = new Chart($('c4'), {type:'bar', data:{labels:[], datasets:[{data:[], backgroundColor:css('--bar'), borderRadius:3, maxBarThickness:28}]},
+  options:{responsive:true, maintainAspectRatio:false, animation:false, plugins:{legend:{display:false}, tooltip:{enabled:true, callbacks:{label:c=>'p = '+c.parsed.y.toFixed(3)}}},
+    scales:{ x:{ticks:{color:css('--ink-2'), font:{family:'"IBM Plex Mono", ui-monospace, monospace'}, autoSkip:false, maxRotation:60}, grid:{display:false}, border:{color:css('--rule')}},
+             y:{min:0, max:1, title:{display:true, text:'probability', color:css('--ink-3')}, ticks:{color:css('--ink-3')}, grid:{color:css('--grid')}, border:{display:false}} }}});
+
+// ---------- compute and draw
+let Ecl = null, S = [], spec = [], gaps = [];
+function full(){
+  Ecl = classical();
+  const D = 1 << P.N, NS = P.N >= 5 ? 61 : 101, nl = Math.min(8, D);
+  S = Array.from({length:NS}, (_,i) => i/(NS-1));
+  spec = S.map(s => jacobi(hamiltonian(s, Ecl), false).e);
+  gaps = spec.map(e => e[1] - e[0]);
+  let im = 0; for (let i=1;i<NS;i++) if (gaps[i] < gaps[im]) im = i;
+
+  c1.data.datasets[0].data = S.map(s => ({x:s, y:A(s)}));
+  c1.data.datasets[1].data = S.map(s => ({x:s, y:B(s)}));
+
+  const ds = [];
+  for (let k=nl-1;k>=0;k--){
+    ds.push({data:S.map((s,i)=>({x:s, y:spec[i][k]})),
+      borderColor: k===0 ? css('--gs') : k===1 ? css('--ex') : css('--other'),
+      borderWidth: k<2 ? 2.5 : 1.3, borderDash: k===1 ? [7,5] : []});
+  }
+  ds.push({data:[{x:S[im], y:spec[im][0]}, {x:S[im], y:spec[im][1]}], showLine:false, pointRadius:5, pointBackgroundColor:css('--thermal'), borderColor:css('--thermal')});
+  c2.data.datasets = ds;
+
+  const kT = KB_H * P.T * 1e-3;
+  c3.data.datasets[0].data = S.map((s,i) => ({x:s, y:gaps[i]}));
+  c3.data.datasets[1].data = [{x:0, y:kT}, {x:1, y:kT}];
+
+  const emin = Math.min(...Ecl); let deg = 0; for (const e of Ecl) if (Math.abs(e - emin) < 1e-9) deg++;
+  $('r_m').textContent = gaps[im].toFixed(3);
+  $('r_ms').textContent = S[im].toFixed(2);
+  $('r_t').textContent = kT.toFixed(3);
+  $('r_deg').textContent = deg;
+  cursor();
+}
+function cursor(){
+  const s = P.s, r = jacobi(hamiltonian(s, Ecl), true), N = P.N, D = 1 << N;
+  for (const ch of [c1,c2,c3]) ch.options.plugins.cursor.x = s;
+  const p = r.g.map(x => x*x);
+  let idx = [...Array(D).keys()];
+  if (D > 8) idx = idx.sort((i,j) => p[j] - p[i]).slice(0, 8);
+  c4.data.labels = idx.map(k => [...Array(N)].map((_,i) => bit(k,i,N) > 0 ? '+' : '−').join(' '));
+  c4.data.datasets[0].data = idx.map(k => p[k]);
+  $('c4cap').firstChild.textContent = D > 8 ? `Ground state at s = ${s.toFixed(2)} (8 most probable)` : `Ground state at s = ${s.toFixed(2)}`;
+  const b = B(s);
+  $('r_s').textContent = s.toFixed(2);
+  $('r_g').textContent = b > 0 ? (A(s)/b).toFixed(2) : '∞';
+  $('r_d').textContent = (r.e[1] - r.e[0]).toFixed(3);
+  c1.update(); c2.update(); c3.update(); c4.update();
+}
+
+// ---------- play
+let timer = null;
+function stop(){ if (timer){ clearInterval(timer); timer = null; } $('play').textContent = 'Play'; }
+$('play').addEventListener('click', () => {
+  if (timer){ stop(); return; }
+  if (P.s >= 1) P.s = 0;
+  $('play').textContent = 'Pause';
+  timer = setInterval(() => {
+    P.s = Math.min(1, +(P.s + 0.0025 * +$('spd').value).toFixed(4));
+    $('s').value = P.s; $('so').textContent = P.s.toFixed(2);
+    cursor();
+    if (P.s >= 1) stop();
+  }, 40);
+});
+
+syncControls();
+full();
+</script>
+</body>
+</html>
